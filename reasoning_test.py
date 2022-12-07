@@ -97,7 +97,7 @@ data_graph_format = 'turtle'
 #"""  
 time_start =time.time()    
 conforms, v_graph, v_text = validate(data_graph, shacl_graph=shapes_graph,
-                                     data_graph_format=data_graph_format,
+                                     data_graph_format='turtle',
                                      shacl_graph_format=shapes_graph_format,
                                      inference='both')  
 time_end=time.time() 
