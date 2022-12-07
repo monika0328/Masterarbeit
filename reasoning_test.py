@@ -29,9 +29,32 @@ schema:PersonShape
         sh:minCount 1 ;
     ] ;
     sh:property [
+        sh:path schema:knows ;
+        sh:node schema:PersonShape2 ;
+    ] ;
+    sh:property [
         sh:path schema:address ;
         sh:node schema:AddressShape ;
     ] .
+    
+schema:PersonShape2
+    a sh:NodeShape ;
+    sh:targetClass schema:Person ;
+    sh:property [
+        sh:path schema:Name ;
+        sh:datatype xsd:string ;
+        sh:name "given name" ;
+    ] ;
+    sh:property [
+        sh:path schema:birthDate ;
+        sh:lessThan schema:deathDate ;
+        sh:maxCount 1 ;
+    ] ;
+    sh:property [
+        sh:path schema:address ;
+        sh:node schema:AddressShape ;
+    ] .
+
 schema:AddressShape
     a sh:NodeShape ;
     sh:targetClass schema:Address ;
@@ -75,7 +98,7 @@ schema:nn rdfs:domain schema:Person.
      owl:sameAs :alice.      
      
 :simon a schema:Student;
-       schema:know :alice.
+       schema:knows :alice.
 
 :semon owl:sameAs :simon.
 

@@ -31,8 +31,6 @@ if TYPE_CHECKING:
     from pyshacl.shapes_graph import ShapesGraph
 
 
-
-
 def load_graph(data_graph: Union[GraphLike, str, bytes],
     shacl_graph: Optional[Union[GraphLike, str, bytes]] = None,
     data_graph_format: Optional[str] = None,
@@ -121,6 +119,13 @@ def fused_graph(
             
                                    
     return vg, same_nodes
+
+def check_symmetricProperty(g, p): # RULE prp-symp
+    if (p, RDF.type, OWL.SymmetricProperty) in g:
+        for x, y in g.subject_objects(p):
+            g.add((y, p, x))
+        g.remove((p, RDF.type, OWL.SymmetricProperty))
+    
 
 def check_asymmetricProperty(g, p): # prp-asyp
     if (p, RDF.type, OWL.AsymmetricProperty) in g:
@@ -324,6 +329,7 @@ def merge_same_property(g, properties, found_node_targets, target_classes):
                 g.add((x, focus_property, y))
                 
         check_propertyDisjointWith(g, focus_property)
+        check_symmetricProperty(g, focus_property)
         check_domain_range(g, focus_property, found_node_targets, target_classes)
         check_com_dw(g, target_classes)
         check_FunctionalProperty(g, focus_property, found_node_targets)
