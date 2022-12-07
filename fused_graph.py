@@ -3,8 +3,6 @@ from errors import FusionRuntimeError
 from pyshacl.pytypes import GraphLike
 import rdflib
 
-from pyshacl import validate
-
 from rdflib.namespace import OWL, RDF, RDFS
 
 from pyshacl.shapes_graph import ShapesGraph
