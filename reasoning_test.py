@@ -118,6 +118,7 @@ data_graph_format = 'turtle'
 
 
 #"""  
+print("Example !!! TEST for owl:InverseFunctionalProperty and rdfs:domain !!!")
 time_start =time.time()    
 conforms, v_graph, v_text = validate(data_graph, shacl_graph=shapes_graph,
                                      data_graph_format='turtle',

@@ -277,12 +277,32 @@ def check_InverseFunctionalProperty(g, focus_property, found_node_targets):
                     if x1 in found_node_targets or x2 in found_node_targets:
                         g.add((x1, OWL.sameAs, x2))
         g.remove((focus_property, RDF.type, OWL.InverseFunctionalProperty))
+        
+def all_subProperties_merged(g, p):
+    m1 = [s for s in g.subjects(RDFS.subPropertyOf, p)]
+    if len(m1)!= 0:
+        return False
+    return True
     
         
 def merge_same_property(g, properties, found_node_targets, target_classes):
     for focus_property in properties:
         check_irreflexiveProperty(g, focus_property)
         check_asymmetricProperty(g, focus_property)
+        # subProperty
+        while not all_subProperties_merged(g, focus_property):
+            for sub_p in g.subjects(RDFS.subPropertyOf, focus_property):
+                if sub_p != focus_property:
+                    if (focus_property, RDFS.subPropertyOf, sub_p) in g: #scm-eqp2
+                        g.add((focus_property, OWL.sameAs, sub_p))
+                    else:
+                        for p3 in g.subject(RDFS.subPropertyOf, sub_p): # RULE scm-spo
+                            if focus_property != p3:
+                                g.add((p3, RDFS.subPropertyOf, focus_property))
+                        for x, y in g.subject_objects(sub_p): # rdfs7
+                            g.add((x, focus_property, y))
+                
+                g.remove((sub_p, RDFS.subPropertyOf, focus_property))
         
         while not all_property_merged(g, focus_property):
             
@@ -323,10 +343,7 @@ def merge_same_property(g, properties, found_node_targets, target_classes):
                                 g.add((s, p, focus_property))
                     
                 g.remove((focus_property, OWL.sameAs, same_property))
-        # rdfs7
-        for sub_p in g.subjects(RDFS.subPropertyOf, focus_property):
-            for x, y in g.subject_objects(sub_p):
-                g.add((x, focus_property, y))
+            
                 
         check_propertyDisjointWith(g, focus_property)
         check_symmetricProperty(g, focus_property)
@@ -433,7 +450,7 @@ def noiseless_fused_graph(
             for p, n in vg.namespace_manager.namespaces():
                 rg.namespace_manager.bind(p, n)
             
-            """
+            #"""
             for s in found_node_targets.union(target_classes):
                 for pp, oo in vg.predicate_objects(s):
                     rg.add((s, pp, oo))
@@ -441,36 +458,6 @@ def noiseless_fused_graph(
                 for ss, oo in vg.subject_objects(p):
                     if not ss in found_node_targets.union(target_classes):
                         rg.add((ss, p, oo))
-            return rg, same_nodes
-            """
-            
-            for target in found_node_targets.union(target_classes):
-                sparql_query = """
-                    SELECT DISTINCT ?s ?p ?o
-                    WHERE {
-                    ?s ?p ?o .
-                    }
-                    """
-                results = vg.query(sparql_query, initBindings={'s' : target})
-                
-                for result in results:
-                    #print(str(result))
-                    rg.add((result))
-                    
-            for p in path_value:
-                sparql_query_path = """
-                    SELECT DISTINCT ?s ?p ?o
-                    WHERE {
-                    ?s ?p ?o .
-                    }
-                    """
-                path_results = vg.query(sparql_query_path, initBindings={'p' : p})
-                
-                for path_triple in path_results:
-                    if path_triple[0] not in found_node_targets.union(target_classes):
-                        #print(str(path_triple))
-                        rg.add((path_triple))
-                        
             return rg, same_nodes
             
             
