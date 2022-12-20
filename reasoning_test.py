@@ -29,31 +29,14 @@ schema:PersonShape
         sh:minCount 1 ;
     ] ;
     sh:property [
-        sh:path schema:knows ;
-        sh:node schema:PersonShape2 ;
-    ] ;
-    sh:property [
         sh:path schema:address ;
         sh:node schema:AddressShape ;
     ] .
     
-schema:PersonShape2
-    a sh:NodeShape ;
-    sh:targetClass schema:Person ;
-    sh:property [
-        sh:path schema:Name ;
-        sh:datatype xsd:string ;
-        sh:name "given name" ;
-    ] ;
-    sh:property [
-        sh:path schema:birthDate ;
-        sh:lessThan schema:deathDate ;
-        sh:maxCount 1 ;
-    ].
 
 schema:AddressShape
     a sh:NodeShape ;
-    sh:targetClass schema:Address ;
+    sh:closed true ;
     sh:property [
         sh:path schema:streetAddress ;
         sh:datatype xsd:string ;
@@ -77,18 +60,17 @@ data_graph = '''
 @prefix sh: <http://www.w3.org/ns/shacl#> .
 @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
 
+
 :alice schema:nn "Alice";
        schema:gender "female".
 
-:Alice schema:nn "Alice".
+:Alice schema:name "Alice".
        
 schema:name owl:sameAs schema:Name.
 
 schema:nn owl:sameAs schema:name.
 
 schema:nn a owl:InverseFunctionalProperty.
-
-schema:nn rdfs:domain schema:Person.
 
 :ali a schema:Person; 
      schema:address [ schema:streetAddress "1600 Amphitheatre Pkway"; schema:postalCode 94004] ;
@@ -99,15 +81,12 @@ schema:nn rdfs:domain schema:Person.
 
 :semon owl:sameAs :simon.
 
-:Math a schema:Department.
- 
-:math owl:sameAs :Math.
+schema:TL rdfs:subClassOf schema:Person.
 
-:CS a schema:Department.
+schema:Student owl:equivalentClass schema:TL.
 
-:info owl:sameAs :CS.
-
-schema:Student rdfs:subClassOf schema:Person.
+:math a schema:Course;
+      schema:name "Math".
 
 '''
 data_graph_format = 'turtle'

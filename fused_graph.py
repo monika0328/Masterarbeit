@@ -85,22 +85,24 @@ def fused_graph(
         path_value = set()
         found_target_classes = set()
         for s in shapes:
-            focus = s.focus_nodes(g)
+            focus = s.focus_nodes(vg)
             found_node_targets.update(focus)
             target_classes.update(s.target_classes())
             target_classes.update(s.implicit_class_targets())
-            
-            target_property=set(s.property_shapes())
+                
+            target_property=set(s.property_shapes())            
             for blin in target_property:
                 path_value.update(s.sg.graph.objects(blin, SH_path))
         
         for tc in target_classes:
-            subc = g.transitive_subjects(RDFS_subClassOf, tc)
+            subc = vg.transitive_subjects(RDFS_subClassOf, tc)
             for subclass in subc:
                 if subclass == tc:
                     continue
                 found_target_classes.add(subclass)
         target_classes.update(found_target_classes)
+        
+        merge_eq_classes(vg, found_node_targets, target_classes)
         
         # merge same properties 
         merge_same_property(vg, path_value, found_node_targets, target_classes)
@@ -115,8 +117,6 @@ def fused_graph(
             while not all_focus_merged(vg, focus_node):
                 merge_same_focus(vg, same_nodes, focus_node)  
                 check_com_dw(vg, target_classes)
-        
-            
                                    
     return vg, same_nodes
 
@@ -246,6 +246,12 @@ def all_property_merged(g, property):
     m2 = [s for s in g.subjects(OWL.sameAs, property)] 
     if len(m2) != 0:
         return False             
+    m3 = [oo for oo in g.objects(property, OWL.equivalentProperty)]
+    if len(m3)!= 0:
+        return False
+    m4 = [ss for ss in g.subjects(OWL.equivalentProperty, property)] 
+    if len(m4) != 0:
+        return False 
     return True
 
 def all_focus_merged(g, focus):
@@ -264,8 +270,8 @@ def check_FunctionalProperty(g, focus_property, found_node_targets):
         for x, y1 in g.subject_objects(focus_property):
             for y2 in g.objects(x, focus_property):
                 if y1 != y2:
-                    if y1 in found_node_targets or y2 in found_node_targets:
-                        g.add((y1, OWL.sameAs, y2))
+                    #if y1 in found_node_targets or y2 in found_node_targets:
+                    g.add((y1, OWL.sameAs, y2))
         g.remove((focus_property, RDF.type, OWL.FunctionalProperty))
     
 def check_InverseFunctionalProperty(g, focus_property, found_node_targets):
@@ -274,8 +280,8 @@ def check_InverseFunctionalProperty(g, focus_property, found_node_targets):
         for x1, y in g.subject_objects(focus_property):
             for x2 in g.subjects(focus_property, y):
                 if x1 != x2:
-                    if x1 in found_node_targets or x2 in found_node_targets:
-                        g.add((x1, OWL.sameAs, x2))
+                    #if x1 in found_node_targets or x2 in found_node_targets:
+                    g.add((x1, OWL.sameAs, x2))
         g.remove((focus_property, RDF.type, OWL.InverseFunctionalProperty))
         
 def all_subProperties_merged(g, p):
@@ -283,7 +289,32 @@ def all_subProperties_merged(g, p):
     if len(m1)!= 0:
         return False
     return True
+
+def merge_eq_classes(g, found_node_targets, target_classes):
+    eq_targetClass = set()
+    eq_targetNodes = set()
+    for c in target_classes:
+        for c1 in g.subjects(OWL.equivalentClass, c): # c1 == c
+            eq_targetClass.add(c1)
+            for s in g.subjects(RDF.type, c1):
+                eq_targetNodes.add(s)
+                g.add((s, RDF.type, c))
+            for ss in g.subjects(RDF.type, c):
+                g.add((ss, RDF.type, c1))
+            g.remove((c1, OWL.equivalentClass, c))
+        for c2 in g.objects(c, OWL.equivalentClass): # c == c2
+            eq_targetClass.add(c2)
+            for s in g.subjects(RDF.type, c2):
+                eq_targetNodes.add(s)
+                g.add((s, RDF.type, c))
+            for ss in g.subjects(RDF.type, c):
+                g.add((ss, RDF.type, c2))
+            g.remove((c, OWL.equivalentClass, c2))
+
+    found_node_targets.update(eq_targetNodes)
+    target_classes.update(eq_targetClass)   
     
+            
         
 def merge_same_property(g, properties, found_node_targets, target_classes):
     for focus_property in properties:
@@ -291,25 +322,35 @@ def merge_same_property(g, properties, found_node_targets, target_classes):
         check_asymmetricProperty(g, focus_property)
         # subProperty
         while not all_subProperties_merged(g, focus_property):
-            for sub_p in g.subjects(RDFS.subPropertyOf, focus_property):
-                if sub_p != focus_property:
-                    if (focus_property, RDFS.subPropertyOf, sub_p) in g: #scm-eqp2
-                        g.add((focus_property, OWL.sameAs, sub_p))
-                    else:
-                        for p3 in g.subject(RDFS.subPropertyOf, sub_p): # RULE scm-spo
-                            if focus_property != p3:
-                                g.add((p3, RDFS.subPropertyOf, focus_property))
-                        for x, y in g.subject_objects(sub_p): # rdfs7
-                            g.add((x, focus_property, y))
+            for sub_p in g.subjects(RDFS.subPropertyOf, focus_property):   
+                if (focus_property, RDFS.subPropertyOf, sub_p) in g: #scm-eqp2
+                    g.add((focus_property, OWL.sameAs, sub_p))
+                else:
+                    for p3 in g.subjects(RDFS.subPropertyOf, sub_p): # RULE scm-spo
+                        if focus_property != p3:
+                            g.add((p3, RDFS.subPropertyOf, focus_property))
+                            
+                    for c in g.objects(focus_property,RDFS.domain): #scm-dom2
+                        g.add((sub_p, RDFS.domain, c))
+                        
+                    for c1 in g.objects(focus_property,RDFS.range): #scm-rng2
+                        g.add((sub_p, RDFS.range, c1))
+                        
+                    for x, y in g.subject_objects(sub_p): # prp-spo1
+                        g.add((x, focus_property, y))
                 
-                g.remove((sub_p, RDFS.subPropertyOf, focus_property))
+                    g.remove((sub_p, RDFS.subPropertyOf, focus_property))
+            
         
         while not all_property_merged(g, focus_property):
+            for p1 in g.subjects(OWL.equivalentProperty, focus_property):
+                g.remove((p1, OWL.equivalentProperty, focus_property))
+                g.add((focus_property, OWL.sameAs, p1))
+            for p2 in g.objects(focus_property, OWL.equivalentProperty):
+                g.remove((focus_property, OWL.equivalentProperty, p2))
+                g.add((focus_property, OWL.sameAs, p2))
             
-            for same_prop in g.subjects(OWL.sameAs, focus_property): 
-                check_irreflexiveProperty(g, same_prop)
-                check_asymmetricProperty(g, same_prop)
-                
+            for same_prop in g.subjects(OWL.sameAs, focus_property):                 
                 g.remove((same_prop, OWL.sameAs, focus_property))
                 g.add((focus_property, OWL.sameAs, same_prop))
                 
@@ -323,7 +364,6 @@ def merge_same_property(g, properties, found_node_targets, target_classes):
                             g.remove((same_property, p, o))
                             g.add((focus_property, p, o))
                         for s, p in g.subject_predicates(same_property):
-                        
                             g.remove((s, p, same_property))
                             g.add((s, p, focus_property))
                         for s, o in g.subject_objects(same_property):
@@ -405,25 +445,32 @@ def noiseless_fused_graph(
         found_node_targets = set()
         target_classes = set()
         path_value = set()
+        global_path = set()
         found_target_classes = set()
         for s in shapes:
-            focus = s.focus_nodes(g)
+            focus = s.focus_nodes(vg)
             found_node_targets.update(focus)
             target_classes.update(s.target_classes())
             target_classes.update(s.implicit_class_targets())
             
             target_property=set(s.property_shapes())
+
+            if len(set(s.target_classes()))==0:       
+                for blin in target_property:
+                    global_path.update(s.sg.graph.objects(blin, SH_path))
+
             for blin in target_property:
                 path_value.update(s.sg.graph.objects(blin, SH_path))
 
         for tc in target_classes:
-            subc = g.transitive_subjects(RDFS_subClassOf, tc)
+            subc = vg.transitive_subjects(RDFS_subClassOf, tc)
             for subclass in subc:
                 if subclass == tc:
                     continue
                 found_target_classes.add(subclass)
         target_classes.update(found_target_classes)
 
+        merge_eq_classes(vg, found_node_targets, target_classes)
             
         # merge same properties 
         merge_same_property(vg, path_value, found_node_targets, target_classes)
@@ -442,7 +489,7 @@ def noiseless_fused_graph(
         
         if merge_Type:
             for s, p, o in vg:
-                if not s in found_node_targets.union(target_classes) and p not in path_value:
+                if not p in global_path and (not s in found_node_targets.union(target_classes)):
                     vg.remove((s,p,o))
             return vg, same_nodes
         else:
@@ -454,7 +501,7 @@ def noiseless_fused_graph(
             for s in found_node_targets.union(target_classes):
                 for pp, oo in vg.predicate_objects(s):
                     rg.add((s, pp, oo))
-            for p in path_value:
+            for p in global_path:
                 for ss, oo in vg.subject_objects(p):
                     if not ss in found_node_targets.union(target_classes):
                         rg.add((ss, p, oo))
