@@ -49,11 +49,7 @@ schema:PersonShape2
         sh:path schema:birthDate ;
         sh:lessThan schema:deathDate ;
         sh:maxCount 1 ;
-    ] ;
-    sh:property [
-        sh:path schema:address ;
-        sh:node schema:AddressShape ;
-    ] .
+    ].
 
 schema:AddressShape
     a sh:NodeShape ;
@@ -94,7 +90,8 @@ schema:nn a owl:InverseFunctionalProperty.
 
 schema:nn rdfs:domain schema:Person.
 
-:ali schema:address [ schema:streetAddress "1600 Amphitheatre Pkway"; schema:postalCode 94004] ;
+:ali a schema:Person; 
+     schema:address [ schema:streetAddress "1600 Amphitheatre Pkway"; schema:postalCode 94004] ;
      owl:sameAs :alice.      
      
 :simon a schema:Student;
@@ -119,6 +116,15 @@ data_graph_format = 'turtle'
 
 #"""  
 print("Example !!! TEST for owl:InverseFunctionalProperty and rdfs:domain !!!")
+
+t1=time.time()    
+conform, v_g, v_t = validate(data_graph, shacl_graph=shapes_graph,
+                                     data_graph_format='turtle',
+                                     shacl_graph_format=shapes_graph_format,
+                                     inference='none')  
+t2=time.time() 
+print('Runtime: ', (t2-t1)*1000, 'ms [without]')
+
 time_start =time.time()    
 conforms, v_graph, v_text = validate(data_graph, shacl_graph=shapes_graph,
                                      data_graph_format='turtle',
@@ -154,6 +160,7 @@ conforms3, v_graph3, v_text3 = validate(v_graph2, shacl_graph=shapes_graph,
                                      inference='none')
 time_end3=time.time()
 
+
 print('Runtime: ', (time_end1-time_start1)*1000, 'ms [Fused Graph]')
 
 print('Runtime: ', (time_end2-time_start2)*1000, 'ms [Noiseless Fused Graph by removing nodes]')
@@ -180,6 +187,7 @@ print("=======================End===========================\n")
 
 
 print("=======================Reports===========================\n")
+print(v_t)
 print(v_text)
 print(v_text1)
 print(v_text2)

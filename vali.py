@@ -1,7 +1,7 @@
 from pyshacl import validate
 from os import path
 
-from fused_graph import fused_graph, noiseless_fused_graph
+from fused_graph import load_graph, fused_graph, noiseless_fused_graph
 import time
 
 shapes_file = '''
@@ -110,11 +110,17 @@ ub:DepartmentShape
 '''
 
 #"""
+t1=time.time()    
+conforms, v_graph, v_t = validate('/Users/kejin/Developer/MA-IMP/example/data/raw/LUBM-univ1.nt', shacl_graph=shapes_file, inference='none',
+                                     serialize_report_graph=False, data_graph_format='turtle', shacl_graph_format='turtle') 
+t2=time.time() 
+print('Runtime: ', (t2-t1)*1000, 'ms [without]')
+
 time_start =time.time() 
 conforms, v_graph, v_text = validate('/Users/kejin/Developer/MA-IMP/example/data/raw/LUBM-univ1.nt', shacl_graph=shapes_file, inference='both',
                                      serialize_report_graph=False, data_graph_format='turtle', shacl_graph_format='turtle')
 time_end=time.time() 
-print('Runtime for LUBM:', (time_end-time_start), 's [Naive method]')
+print('Runtime for LUBM:', (time_end-time_start)*1000, 'ms [Naive method]')
 
 
 import logging
@@ -122,14 +128,14 @@ import logging
 if __name__ == "__main__":
     logging.basicConfig(level=logging.DEBUG, filename="logfile", filemode="a+",
                         format="%(asctime)-15s %(levelname)-8s %(message)s")
-    logging.info(v_text)
+    logging.info(v_t)
 
 time_start1 =time.time()
 result_graph,list = fused_graph('/Users/kejin/Developer/MA-IMP/example/data/raw/LUBM-univ1.nt',data_graph_format='turtle', shacl_graph=shapes_file,shacl_graph_format='turtle')
 conforms1, g1, v_text1 = validate(result_graph, shacl_graph=shapes_file, inference='none',
                                      serialize_report_graph=False, data_graph_format='turtle', shacl_graph_format='turtle')
 time_end1=time.time()
-print('Runtime for LUBM: ', (time_end1-time_start1), 's [Fused Graph]')
+print('Runtime for LUBM: ', (time_end1-time_start1)*1000, 'ms [Fused Graph]')
 
 
 time_start2 =time.time()
@@ -137,7 +143,7 @@ v_graph, same_list = noiseless_fused_graph('/Users/kejin/Developer/MA-IMP/exampl
 conforms2, g2, v_text2 = validate(v_graph, shacl_graph=shapes_file, inference='none',
                                      serialize_report_graph=False, data_graph_format='turtle', shacl_graph_format='turtle')
 time_end2=time.time()
-print('Runtime for LUBM: ', (time_end2-time_start2), 's [Noiseless Fused Graph by removing nodes]')
+print('Runtime for LUBM: ', (time_end2-time_start2)*1000, 'ms [Noiseless Fused Graph by removing nodes]')
 
 
 
@@ -146,10 +152,14 @@ v_graph2, same_list2 = noiseless_fused_graph('/Users/kejin/Developer/MA-IMP/exam
 conforms3, g3, v_text3 = validate(v_graph2, shacl_graph=shapes_file, inference='none',
                                      serialize_report_graph=False, data_graph_format='turtle', shacl_graph_format='turtle')
 time_end3=time.time()
-print('Runtime for LUBM: ', (time_end3-time_start3), 's [Noiseless Fused Graph by adding nodes]')
+print('Runtime for LUBM: ', (time_end3-time_start3)*1000, 'ms [Noiseless Fused Graph by adding nodes]')
 
 print('Original Graph Size: ', len(result_graph))
 print('Size of Noiseless Fused Graph by removing nodes: ', len(v_graph))
 print('Size of Noiseless Fused Graph by adding nodes: ', len(v_graph2))
+
+
+print(len(v_text), len(v_t))
+print(len(v_text1),len(v_text2),len(v_text3))
 
 #"""
