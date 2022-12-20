@@ -163,6 +163,20 @@ def check_propertyDisjointWith(g, focus_property): # prp-pdw
                 )
     """
     
+    
+def check_inverseOf(g, focus_property): #TODO: Test for inverseOf
+    for p1 in g.subjects(OWL.inverseOf, focus_property): 
+        for x, y in g.subject_objects(p1):
+            g.add((y, focus_property, x))
+        for xx, yy in g.subject_objects(focus_property):
+            g.add((yy, p1, xx))
+    for p2 in g.objects(focus_property, OWL.inverseOf): 
+        for x, y in g.subject_objects(p2):
+            g.add((y, focus_property, x))
+        for xx, yy in g.subject_objects(focus_property):
+            g.add((yy, p2, xx))
+        
+    
 def check_domain_range(g, p, target_nodes, target_classes):
     for o in g.objects(p, RDFS.domain): # RULE prp-dom
         if o in target_classes:
@@ -426,6 +440,7 @@ def merge_same_property(g, properties, found_node_targets, target_classes):
         check_propertyDisjointWith(g, focus_property)
         check_symmetricProperty(g, focus_property)
         check_transitiveProperty(g, focus_property, found_node_targets) # TODO: generator
+        check_inverseOf(g, focus_property)
         check_domain_range(g, focus_property, found_node_targets, target_classes)
         check_com_dw(g, target_classes)
         check_FunctionalProperty(g, focus_property, found_node_targets)
