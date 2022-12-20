@@ -76,14 +76,15 @@ schema:nn a owl:InverseFunctionalProperty.
      schema:address [ schema:streetAddress "1600 Amphitheatre Pkway"; schema:postalCode 94004] ;
      owl:sameAs :alice.      
      
-:simon a schema:Student;
-       schema:knows :alice.
+:simon schema:knows :alice.
 
 :semon owl:sameAs :simon.
 
 schema:TL rdfs:subClassOf schema:Person.
 
-schema:Student owl:equivalentClass schema:TL.
+schema:Student owl:sameAs schema:TL.
+
+schema:knows rdfs:domain schema:Student.
 
 :math a schema:Course;
       schema:name "Math".
