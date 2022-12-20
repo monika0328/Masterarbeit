@@ -103,7 +103,7 @@ def fused_graph(
                 found_target_classes.add(subclass)
         target_classes.update(found_target_classes)
         
-        merge_eq_classes(vg, found_node_targets, target_classes)
+        merge_target_classes(vg, found_node_targets, target_classes)
         target_domain_range(vg, found_node_targets, target_classes)
         
         # merge same properties 
@@ -326,7 +326,7 @@ def all_subProperties_merged(g, p):
         return False
     return True
 
-def merge_eq_classes(g, found_node_targets, target_classes):  #TODO
+def merge_target_classes(g, found_node_targets, target_classes):  #TODO: subClass use cases
     eq_targetClass = set()
     eq_targetNodes = set()
     for c in target_classes:
@@ -337,7 +337,9 @@ def merge_eq_classes(g, found_node_targets, target_classes):  #TODO
                 g.add((s, RDF.type, c))
             for ss in g.subjects(RDF.type, c):
                 g.add((ss, RDF.type, c1))
-            #g.remove((c1, OWL.equivalentClass, c))
+            g.remove((c1, OWL.equivalentClass, c))
+            g.add((c1, RDFS.subClassOf, c))
+            g.add((c, RDFS.subClassOf, c1))
         for c2 in g.objects(c, OWL.equivalentClass): # c == c2
             eq_targetClass.add(c2)
             for s in g.subjects(RDF.type, c2):
@@ -345,7 +347,9 @@ def merge_eq_classes(g, found_node_targets, target_classes):  #TODO
                 g.add((s, RDF.type, c))
             for ss in g.subjects(RDF.type, c):
                 g.add((ss, RDF.type, c2))
-            #g.remove((c, OWL.equivalentClass, c2))
+            g.remove((c, OWL.equivalentClass, c2))
+            g.add((c2, RDFS.subClassOf, c))
+            g.add((c, RDFS.subClassOf, c2))
         for c1 in g.subjects(OWL.sameAs, c): # c1 == c 
             eq_targetClass.add(c1)
             for s in g.subjects(RDF.type, c1):
@@ -353,7 +357,9 @@ def merge_eq_classes(g, found_node_targets, target_classes):  #TODO
                 g.add((s, RDF.type, c))
             for ss in g.subjects(RDF.type, c):
                 g.add((ss, RDF.type, c1))
-            
+            g.remove((c1, OWL.sameAs, c))
+            g.add((c1, RDFS.subClassOf, c))
+            g.add((c, RDFS.subClassOf, c1))
         for c2 in g.objects(c, OWL.sameAs): # c == c2
             eq_targetClass.add(c2)
             for s in g.subjects(RDF.type, c2):
@@ -361,7 +367,9 @@ def merge_eq_classes(g, found_node_targets, target_classes):  #TODO
                 g.add((s, RDF.type, c))
             for ss in g.subjects(RDF.type, c):
                 g.add((ss, RDF.type, c2))
-           
+            g.remove((c, OWL.equivalentClass, c2))
+            g.add((c2, RDFS.subClassOf, c))
+            g.add((c, RDFS.subClassOf, c2))
 
     found_node_targets.update(eq_targetNodes)
     target_classes.update(eq_targetClass)   
@@ -524,7 +532,7 @@ def noiseless_fused_graph(
                 found_target_classes.add(subclass)
         target_classes.update(found_target_classes)
 
-        merge_eq_classes(vg, found_node_targets, target_classes)
+        merge_target_classes(vg, found_node_targets, target_classes)
         target_domain_range(vg, found_node_targets, target_classes)
         # merge same properties 
         merge_same_property(vg, path_value, found_node_targets, target_classes)
