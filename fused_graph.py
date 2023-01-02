@@ -103,22 +103,24 @@ def fused_graph(
                 found_target_classes.add(subclass)
         target_classes.update(found_target_classes)
         
-        merge_target_classes(vg, found_node_targets, target_classes)
-        target_domain_range(vg, found_node_targets, target_classes)
-        
-        # merge same properties 
-        merge_same_property(vg, path_value, found_node_targets, target_classes)
-        
-        
         for f in found_node_targets:
             same_set = set()
             same_nodes.update({f: same_set})
         
-        # merge same nodes
-        for focus_node in found_node_targets:      
-            while not all_focus_merged(vg, focus_node):
-                merge_same_focus(vg, same_nodes, focus_node)  
-                check_com_dw(vg, target_classes)
+        
+        while (not all_targetClasses_merged(vg, target_classes)) or (not all_samePath_merged(vg, path_value)):
+            
+            merge_target_classes(vg, found_node_targets, same_nodes, target_classes)
+            target_domain_range(vg, found_node_targets, same_nodes, target_classes)
+            
+            # merge same properties 
+            merge_same_property(vg, path_value, found_node_targets, same_nodes, target_classes)
+            
+            # merge same nodes
+            for focus_node in found_node_targets:      
+                while not all_focus_merged(vg, focus_node):
+                    merge_same_focus(vg, same_nodes, focus_node)  
+                    check_com_dw(vg, target_classes)
                                    
     return vg, same_nodes
 
@@ -138,12 +140,12 @@ def check_asymmetricProperty(g, p): # prp-asyp
                     % (p, x, y)
                 )
    
-def check_transitiveProperty(g, p, targets):    #TODO: Test transitiveP
+def check_transitiveProperty(g, p):    #TODO: Test transitiveP
     if (p, RDF.type, OWL.TransitiveProperty) in g: 
-        for t in targets:
-            trans = g.transitive_objects(t, p)
+        for s, o in g.subject_objects(p):
+            trans = g.transitive_objects(s, p)
             for o in trans:          
-                g.add((t, p, o))  
+                g.add((s, p, o))  
                 
 def check_propertyDisjointWith(g, focus_property): # prp-pdw
     for p in g.objects(focus_property, OWL.propertyDisjointWith):
@@ -177,45 +179,45 @@ def check_inverseOf(g, focus_property): #TODO: Test for inverseOf
             g.add((yy, p2, xx))
         
     
-def check_domain_range(g, p, target_nodes, target_classes):
-    for o in g.objects(p, RDFS.domain): # RULE prp-dom
-        if o in target_classes:
-            for x, y in g.subject_objects(p):
-                g.add((x, RDF.type, o))
-                if not x in target_nodes:
-                    target_nodes.add(x)
+def check_domain_range(g, p, target_nodes, same_nodes, target_classes):
+    for o in g.objects(p, RDFS.domain): # RULE prp-dom  
+        for x, y in g.subject_objects(p):
+            g.add((x, RDF.type, o))
+            if (o in target_classes) and (not x in target_nodes):
+                target_nodes.add(x)
+                same_set = set()
+                same_nodes.update({x: same_set})
 
-        else:
-            for x, y in g.subject_objects(p):
-                if x in target_nodes:
-                    g.add((x, RDF.type, o))
 
     for o in g.objects(p, RDFS.range): # RULE prp-rng
-        if o in target_classes:
-            for x, y in g.subject_objects(p):
-                g.add((y, RDF.type, o))
-                if not y in target_nodes:
-                    target_nodes.add(y)
-        else:
-            for x, y in g.subject_objects(p):
-                if y in target_nodes:
-                    g.add((y, RDF.type, o))
+        for x, y in g.subject_objects(p):
+            g.add((y, RDF.type, o))
+            if (o in target_classes) and (not y in target_nodes):
+                target_nodes.add(y)
+                same_set = set()
+                same_nodes.update({y: same_set})
                     
     return target_nodes
 
-def target_domain_range(g, target_nodes, target_classes):
+def target_domain_range(g, target_nodes, same_nodes, target_classes):
     for c in target_classes:
         for p in g.subjects(RDFS.domain, c):
             for s, o in g.subject_objects(p):
-                g.add((s, RDF.type, c))
+                if not (s, RDF.type, c) in g:
+                    g.add((s, RDF.type, c))
                 if not s in target_nodes:
                     target_nodes.add(s)
+                    same_set = set()
+                    same_nodes.update({s: same_set})
                 
         for pp in g.objects(RDFS.range, c):
             for s, o in g.subject_objects(pp):
-                g.add((o, RDF.type, c))
+                if not (o, RDF.type, c) in g:
+                    g.add((o, RDF.type, c))
                 if not o in target_nodes:
                     target_nodes.add(o)
+                    same_set = set()
+                    same_nodes.update({o: same_set})
 
 def check_com_dw(g, class_list):
     for target_class in class_list:
@@ -275,6 +277,18 @@ def check_irreflexiveProperty(g,p): # RULE prp-irp
                         "Irreflexive property used on %s with %s" % (x, p)
                     ) 
 
+def all_samePath_merged(g, path_value):
+    for p in path_value:
+        m1 = [o for o in g.objects(p, OWL.sameAs)]
+        m2 = [s for s in g.subjects(OWL.sameAs, p)]          
+        m3 = [oo for oo in g.objects(p, OWL.equivalentProperty)]
+        m4 = [ss for ss in g.subjects(OWL.equivalentProperty, p)] 
+        m5 = [s for s in g.subjects(RDFS.subPropertyOf, p)]
+        if len(m1)!= 0 or len(m2)!= 0 or len(m3)!= 0 or len(m4) != 0 or len(m5) != 0:
+            return False 
+    return True
+
+
 def all_property_merged(g, property):
     m1 = [o for o in g.objects(property, OWL.sameAs)]
     if len(m1)!= 0:
@@ -300,7 +314,7 @@ def all_focus_merged(g, focus):
         return False             
     return True
 
-def check_FunctionalProperty(g, focus_property, found_node_targets):
+def check_FunctionalProperty(g, focus_property):
     # prp-fp
     if (focus_property, RDF.type, OWL.FunctionalProperty) in g: 
         for x, y1 in g.subject_objects(focus_property):
@@ -308,9 +322,9 @@ def check_FunctionalProperty(g, focus_property, found_node_targets):
                 if y1 != y2:
                     #if y1 in found_node_targets or y2 in found_node_targets:
                     g.add((y1, OWL.sameAs, y2))
-        g.remove((focus_property, RDF.type, OWL.FunctionalProperty))
+        #g.remove((focus_property, RDF.type, OWL.FunctionalProperty))
     
-def check_InverseFunctionalProperty(g, focus_property, found_node_targets):
+def check_InverseFunctionalProperty(g, focus_property):
     # prp-ifp
     if (focus_property, RDF.type, OWL.InverseFunctionalProperty) in g:
         for x1, y in g.subject_objects(focus_property):
@@ -318,7 +332,7 @@ def check_InverseFunctionalProperty(g, focus_property, found_node_targets):
                 if x1 != x2:
                     #if x1 in found_node_targets or x2 in found_node_targets:
                     g.add((x1, OWL.sameAs, x2))
-        g.remove((focus_property, RDF.type, OWL.InverseFunctionalProperty))
+        #g.remove((focus_property, RDF.type, OWL.InverseFunctionalProperty))
         
 def all_subProperties_merged(g, p):
     m1 = [s for s in g.subjects(RDFS.subPropertyOf, p)]
@@ -326,57 +340,83 @@ def all_subProperties_merged(g, p):
         return False
     return True
 
-def merge_target_classes(g, found_node_targets, target_classes):  #TODO: subClass use cases
+def all_targetClasses_merged(g, target_classes):
+    for c in target_classes:
+        m1 = [s for s in g.subjects(OWL.equivalentClass, c)]
+        m2 = [s for s in g.objects(c, OWL.equivalentClass)]
+        m3 = [s for s in g.subjects(OWL.sameAs, c)]
+        m4 = [s for s in g.objects(c, OWL.sameAs)]
+        if len(m1)!= 0 or len(m2)!= 0 or len(m3)!= 0 or len(m4)!= 0:
+            return False
+    return True
+
+def sameClasses_merged(g, target_class):
+    m1 = [s for s in g.subjects(OWL.equivalentClass, target_class)]
+    m2 = [s for s in g.objects(target_class, OWL.equivalentClass)]
+    m3 = [s for s in g.subjects(OWL.sameAs, target_class)]
+    m4 = [s for s in g.objects(target_class, OWL.sameAs)]
+    if len(m1)!= 0 or len(m2)!= 0 or len(m3)!= 0 or len(m4)!= 0:
+        return False
+    return True
+
+def merge_target_classes(g, found_node_targets, same_nodes, target_classes):  #TODO: subClass use cases
     eq_targetClass = set()
     eq_targetNodes = set()
     for c in target_classes:
-        for c1 in g.subjects(OWL.equivalentClass, c): # c1 == c
-            eq_targetClass.add(c1)
-            for s in g.subjects(RDF.type, c1):
-                eq_targetNodes.add(s)
-                g.add((s, RDF.type, c))
-            for ss in g.subjects(RDF.type, c):
-                g.add((ss, RDF.type, c1))
-            g.remove((c1, OWL.equivalentClass, c))
-            g.add((c1, RDFS.subClassOf, c))
-            g.add((c, RDFS.subClassOf, c1))
-        for c2 in g.objects(c, OWL.equivalentClass): # c == c2
-            eq_targetClass.add(c2)
-            for s in g.subjects(RDF.type, c2):
-                eq_targetNodes.add(s)
-                g.add((s, RDF.type, c))
-            for ss in g.subjects(RDF.type, c):
-                g.add((ss, RDF.type, c2))
-            g.remove((c, OWL.equivalentClass, c2))
-            g.add((c2, RDFS.subClassOf, c))
-            g.add((c, RDFS.subClassOf, c2))
-        for c1 in g.subjects(OWL.sameAs, c): # c1 == c 
-            eq_targetClass.add(c1)
-            for s in g.subjects(RDF.type, c1):
-                eq_targetNodes.add(s)
-                g.add((s, RDF.type, c))
-            for ss in g.subjects(RDF.type, c):
-                g.add((ss, RDF.type, c1))
-            g.remove((c1, OWL.sameAs, c))
-            g.add((c1, RDFS.subClassOf, c))
-            g.add((c, RDFS.subClassOf, c1))
-        for c2 in g.objects(c, OWL.sameAs): # c == c2
-            eq_targetClass.add(c2)
-            for s in g.subjects(RDF.type, c2):
-                eq_targetNodes.add(s)
-                g.add((s, RDF.type, c))
-            for ss in g.subjects(RDF.type, c):
-                g.add((ss, RDF.type, c2))
-            g.remove((c, OWL.equivalentClass, c2))
-            g.add((c2, RDFS.subClassOf, c))
-            g.add((c, RDFS.subClassOf, c2))
+        while not sameClasses_merged(g, c):
+            for c1 in g.subjects(OWL.equivalentClass, c): # c1 == c
+                eq_targetClass.add(c1)
+                for s in g.subjects(RDF.type, c1):
+                    eq_targetNodes.add(s)
+                    g.add((s, RDF.type, c))
+                for ss in g.subjects(RDF.type, c):
+                    g.add((ss, RDF.type, c1))
+                g.remove((c1, OWL.equivalentClass, c))
+                g.add((c1, RDFS.subClassOf, c))
+                g.add((c, RDFS.subClassOf, c1))
+            for c2 in g.objects(c, OWL.equivalentClass): # c == c2
+                eq_targetClass.add(c2)
+                for s in g.subjects(RDF.type, c2):
+                    eq_targetNodes.add(s)
+                    g.add((s, RDF.type, c))
+                for ss in g.subjects(RDF.type, c):
+                    g.add((ss, RDF.type, c2))
+                g.remove((c, OWL.equivalentClass, c2))
+                g.add((c2, RDFS.subClassOf, c))
+                g.add((c, RDFS.subClassOf, c2))
+            for c1 in g.subjects(OWL.sameAs, c): # c1 == c 
+                eq_targetClass.add(c1)
+                for s in g.subjects(RDF.type, c1):
+                    eq_targetNodes.add(s)
+                    g.add((s, RDF.type, c))
+                for ss in g.subjects(RDF.type, c):
+                    g.add((ss, RDF.type, c1))
+                g.remove((c1, OWL.sameAs, c))
+                g.add((c1, RDFS.subClassOf, c))
+                g.add((c, RDFS.subClassOf, c1))
+            for c2 in g.objects(c, OWL.sameAs): # c == c2
+                eq_targetClass.add(c2)
+                for s in g.subjects(RDF.type, c2):
+                    eq_targetNodes.add(s)
+                    g.add((s, RDF.type, c))
+                for ss in g.subjects(RDF.type, c):
+                    g.add((ss, RDF.type, c2))
+                g.remove((c, OWL.equivalentClass, c2))
+                g.add((c2, RDFS.subClassOf, c))
+                g.add((c, RDFS.subClassOf, c2))
 
+    
+    for new_node in eq_targetNodes:
+        if new_node not in found_node_targets:
+            same_set = set()
+            same_nodes.update({new_node: same_set})
+        
     found_node_targets.update(eq_targetNodes)
     target_classes.update(eq_targetClass)   
     
             
         
-def merge_same_property(g, properties, found_node_targets, target_classes):
+def merge_same_property(g, properties, found_node_targets, same_nodes, target_classes):
     for focus_property in properties:
         check_irreflexiveProperty(g, focus_property)
         check_asymmetricProperty(g, focus_property)
@@ -432,8 +472,8 @@ def merge_same_property(g, properties, found_node_targets, target_classes):
                         
                     else:
                         for s, o in g.subject_objects(same_property):
-                            if not (s, focus_property) in g.triples():
-                                g.add((s, focus_property))
+                            if not (s, focus_property, o) in g.triples():
+                                g.add((s, focus_property, o))
                             
                         for p, o in g.predicate_objects(same_property):
                             if not (focus_property, p, o) in g.triples():
@@ -447,12 +487,12 @@ def merge_same_property(g, properties, found_node_targets, target_classes):
                 
         check_propertyDisjointWith(g, focus_property)
         check_symmetricProperty(g, focus_property)
-        check_transitiveProperty(g, focus_property, found_node_targets) # TODO: generator
+        check_transitiveProperty(g, focus_property)
         check_inverseOf(g, focus_property)
-        check_domain_range(g, focus_property, found_node_targets, target_classes)
+        check_domain_range(g, focus_property, found_node_targets, same_nodes, target_classes)
         check_com_dw(g, target_classes)
-        check_FunctionalProperty(g, focus_property, found_node_targets)
-        check_InverseFunctionalProperty(g, focus_property, found_node_targets)
+        check_FunctionalProperty(g, focus_property)
+        check_InverseFunctionalProperty(g, focus_property)
     #return found_node_targets    
 
 
@@ -531,22 +571,26 @@ def noiseless_fused_graph(
                     continue
                 found_target_classes.add(subclass)
         target_classes.update(found_target_classes)
-
-        merge_target_classes(vg, found_node_targets, target_classes)
-        target_domain_range(vg, found_node_targets, target_classes)
-        # merge same properties 
-        merge_same_property(vg, path_value, found_node_targets, target_classes)
         
         
         same_nodes = dict()
         for f in found_node_targets:
             same_set = set()
             same_nodes.update({f: same_set})
+        
+        while (not all_targetClasses_merged(vg, target_classes)) or (not all_samePath_merged(vg, path_value)):
             
-        for focus_node in found_node_targets:      
-            while not all_focus_merged(vg, focus_node):
-                merge_same_focus(vg, same_nodes, focus_node)   
-                check_com_dw(vg, target_classes)
+            merge_target_classes(vg, found_node_targets, same_nodes, target_classes)
+            target_domain_range(vg, found_node_targets, same_nodes, target_classes)
+            
+            # merge same properties 
+            merge_same_property(vg, path_value, found_node_targets, same_nodes, target_classes)
+            
+            # merge same nodes
+            for focus_node in found_node_targets:      
+                while not all_focus_merged(vg, focus_node):
+                    merge_same_focus(vg, same_nodes, focus_node)  
+                    check_com_dw(vg, target_classes)
 
         
         if merge_Type:
@@ -559,7 +603,7 @@ def noiseless_fused_graph(
             for p, n in vg.namespace_manager.namespaces():
                 rg.namespace_manager.bind(p, n)
             
-            #"""
+
             for s in found_node_targets.union(target_classes):
                 for pp, oo in vg.predicate_objects(s):
                     rg.add((s, pp, oo))
