@@ -2,6 +2,7 @@ from fused_graph import fused_graph, noiseless_fused_graph
 import time
 from pyshacl import validate
 
+
 shapes_graph = '''
 @prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
 @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
@@ -10,49 +11,21 @@ shapes_graph = '''
 @prefix sh: <http://www.w3.org/ns/shacl#> .
 @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
 
-schema:PersonShape
-    a sh:NodeShape ;
-    sh:targetClass schema:Person ;
-    sh:property [
-        sh:path schema:Name ;
-        sh:datatype xsd:string ;
-        sh:name "given name" ;
-    ] ;
-    sh:property [
-        sh:path schema:birthDate ;
-        sh:lessThan schema:deathDate ;
-        sh:maxCount 1 ;
-    ] ;
-    sh:property [
-        sh:path schema:gender ;
-        sh:in ( "female" "male" ) ;
-        sh:minCount 1 ;
-    ] ;
-    sh:property [
-        sh:path schema:address ;
-        sh:node schema:AddressShape ;
-    ] .
-    
-
-schema:AddressShape
-    a sh:NodeShape ;
-    sh:closed true ;
-    sh:property [
-        sh:path schema:streetAddress ;
-        sh:datatype xsd:string ;
-    ] ;
-    sh:property [
-        sh:path schema:postalCode ;
-        sh:or ( [ sh:datatype xsd:string ] [ sh:datatype xsd:integer ] ) ;
-        sh:minInclusive 10000 ;
-        sh:maxInclusive 99999 ;
-    ] .
+schema:ClosedShapeExampleShape
+	a sh:NodeShape ;
+	sh:targetNode schema:Alice, schema:Bob ;
+	sh:closed true ;
+	sh:ignoredProperties (rdf:type) ;
+	sh:property [
+		sh:path schema:firstName ;
+	] ;
+	sh:property [
+		sh:path schema:lastName ;
+	] .
 '''
 shapes_graph_format = 'turtle'
 
 data_graph = '''
-@prefix : <http://example.org/ns#> .
-@prefix dash: <http://datashapes.org/dash#> .
 @prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
 @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
 @prefix schema: <http://schema.org/> .
@@ -60,40 +33,15 @@ data_graph = '''
 @prefix sh: <http://www.w3.org/ns/shacl#> .
 @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
 
+schema:Alice
+	schema:firstName "Alice" .
 
-:alice schema:nn "Alice";
-       schema:gender "female".
-
-:Alice schema:name "Alice".
-       
-schema:name owl:sameAs schema:Name.
-
-schema:nn owl:sameAs schema:name;
-          a owl:InverseFunctionalProperty.
-
-:ali a schema:Person; 
-     schema:address [ schema:streetAddress "1600 Amphitheatre Pkway"; schema:postalCode 94004] ;
-     owl:sameAs :alice.      
-     
-:simon schema:knows :alice.
-
-:semon owl:sameAs :simon.
-
-schema:TL rdfs:subClassOf schema:Person.
-
-schema:Student rdfs:subClassOf schema:TL.
-
-schema:knows rdfs:domain schema:Student.
-
-:math a schema:Course;
-      schema:name "Math".
-
+schema:Bob
+	schema:firstName "Bob" ;
+	schema:middleInitial "J" .
 '''
 data_graph_format = 'turtle'
 
-
-
-#"""  
 print("Example !!! TEST for owl:InverseFunctionalProperty and rdfs:domain !!!")
 
 t1=time.time()    
